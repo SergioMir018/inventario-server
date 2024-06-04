@@ -60,8 +60,12 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
     userAccount.ask(replyTo => request.toCommand(replyTo))
   }
 
-  private def searchUserAccount(searchTerm: String): Future[UserResponse] = {
-    userAccount.ask(replyTo => GetUserAccount(searchTerm, replyTo))
+  private def searchUserAccountBySearchTerm(searchTerm: String): Future[UserResponse] = {
+    userAccount.ask(replyTo => GetUserAccountBySearchTerm(searchTerm, replyTo))
+  }
+
+  private def searchUserAccountById(id: String): Future[UserResponse] = {
+    userAccount.ask(replyTo => GetUserAccountById(id, replyTo))
   }
 
   private def loginUserAccount(identifier: String, password: String): Future[UserResponse] = {
@@ -78,7 +82,7 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
             onSuccess(createUserAccount(request)) {
               case CreateUserAccountResponse(id) =>
                 complete(StatusCodes.Created, s"User created with ID: ${id.toString}")
-              case UserAccountCreationFailed(reason) =>
+              case UserAccountCreationFailedResponse(reason) =>
                 complete(StatusCodes.InternalServerError, s"Failed to create user: $reason")
             }
           }
@@ -87,10 +91,22 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
         path("search") {
           get {
             parameter("q") { searchTerm =>
-              onSuccess(searchUserAccount(searchTerm)) {
-                case GetUserAccountResponse(user) =>
+              onSuccess(searchUserAccountBySearchTerm(searchTerm)) {
+                case GetUserAccountBySearchTermResponse(user) =>
                   complete(StatusCodes.OK, user)
-                case UserAccountSearchFailed(reason) =>
+                case GetUserAccountBySearchTermFailedResponse(reason) =>
+                  complete(StatusCodes.NotFound, s"No user found: $reason")
+              }
+            }
+          }
+        } ~
+        path("searchId") {
+          get {
+            parameter("id") { id =>
+              onSuccess(searchUserAccountById(id)) {
+                case GetUserAccountByIdResponse(user) =>
+                  complete(StatusCodes.OK, user)
+                case GetUserAccountByIdFailedResponse(reason) =>
                   complete(StatusCodes.NotFound, s"No user found: $reason")
               }
             }
@@ -102,9 +118,9 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
               onSuccess(loginUserAccount(identifier, password)) {
                 case UserAccountLoginResponse(responseBody) =>
                   complete(StatusCodes.OK, responseBody)
-                case UserAccountLoginResponseFailed(reason) =>
+                case UserAccountLoginFailedResponse(reason) =>
                   complete(StatusCodes.Unauthorized, reason)
-                case UserAccountLoginResponseFailed(reason) =>
+                case UserAccountLoginFailedResponse(reason) =>
                   complete(StatusCodes.NotFound, reason)
               }
             }

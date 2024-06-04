@@ -17,7 +17,7 @@ class UserTable(tag: Tag) extends Table[User](tag, Some("users"), "User") {
   def * = (id, name, email, password, role).mapTo[User]
 }
 
-object SlickTables {
+object DBTables {
 
   val userTable = TableQuery[UserTable]
 
@@ -26,8 +26,14 @@ object SlickTables {
   }
 
 
-  def searchUser(searchTerm: String): Future[Option[User]] = {
+  def searchUserByTerm(searchTerm: String): Future[Option[User]] = {
     val searchQuery = userTable.filter(user => user.name === searchTerm || user.email === searchTerm).result.headOption
+
+    DatabaseConnection.db.run(searchQuery)
+  }
+
+  def searchUserById(id: UUID): Future[Option[User]] = {
+    val searchQuery = userTable.filter(user => user.id === id).result.headOption
 
     DatabaseConnection.db.run(searchQuery)
   }

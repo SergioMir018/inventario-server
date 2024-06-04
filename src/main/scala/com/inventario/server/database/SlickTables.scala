@@ -1,23 +1,27 @@
 package com.inventario.server.database
 
-import slick.lifted.ProvenShape
-import com.inventario.server.definitions.UserRole
+import slick.jdbc.PostgresProfile.api._
 
-case class User(id: Long, name: String, email: String, password: String, role: UserRole)
+import java.util.UUID
+import scala.concurrent.Future
+
+case class User(id: UUID, name: String, email: String, password: String, role: String)
+
+class UserTable(tag: Tag) extends Table[User](tag, Some("users"), "User") {
+  def id = column[UUID]("user_id", O.PrimaryKey)
+  def name = column[String]("name")
+  def email = column[String]("email")
+  def password = column[String]("password")
+  def role = column[String]("role")
+
+  def * = (id, name, email, password, role).mapTo[User]
+}
 
 object SlickTables {
-  import com.inventario.server.definitions.UserRole._
-  import slick.jdbc.PostgresProfile.api._
 
-  class UserTable(tag: Tag) extends Table[User](tag, Some("users"), "User") {
-    private def id = column[Long]("user_id", O.PrimaryKey, O.AutoInc)
-    private def name = column[String]("name")
-    private def email = column[String]("email")
-    private def password = column[String]("password")
-    private def role = column[UserRole]("role")
+  val userTable = TableQuery[UserTable]
 
-    override def * : ProvenShape[User] = (id, name, email, password, role) <> ((User.apply _).tupled, User.unapply)
+  def createUser(user: User): Future[Int] = {
+    DatabaseConnection.db.run(userTable += user)
   }
-
-  lazy val userTable = TableQuery[UserTable]
 }

@@ -21,7 +21,10 @@ object UserAccount {
   final case class UserAccountCreationFailed(reason: String) extends UserResponse
   final case class GetUserAccountResponse(user: User) extends UserResponse
   final case class UserAccountSearchFailed(reason: String) extends UserResponse
-  final case class UserAccountLoginResponse(response: String) extends UserResponse
+  final case class UserAccountLoginResponse(responseBody: LoginResponseBody) extends UserResponse
+  final case class UserAccountLoginResponseFailed(response: String) extends UserResponse
+
+  final case class LoginResponseBody(role: String, id: UUID)
 
   def apply(): Behavior[UserCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContextExecutor = context.executionContext
@@ -53,13 +56,14 @@ object UserAccount {
       case UserAccountLogin(identifier, password, replyTo) =>
         SlickTables.searchUser(identifier).onComplete {
           case Success(Some(user)) if password.equals(user.password) =>
-            replyTo ! UserAccountLoginResponse(user.role)
+            val loginResponse = LoginResponseBody(user.role, user.id)
+            replyTo ! UserAccountLoginResponse(loginResponse)
           case Success(Some(_)) =>
-            replyTo ! UserAccountLoginResponse("Invalid password")
+            replyTo ! UserAccountLoginResponseFailed("Invalid password")
           case Success(None) =>
-            replyTo ! UserAccountLoginResponse("User not found")
+            replyTo ! UserAccountLoginResponseFailed("User not found")
           case Failure(ex) =>
-            replyTo ! UserAccountLoginResponse(ex.getMessage)
+            replyTo ! UserAccountLoginResponseFailed(ex.getMessage)
         }
 
         Behaviors.same

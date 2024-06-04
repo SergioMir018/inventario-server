@@ -100,11 +100,11 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
           post {
             parameters("q", "p") { (identifier, password) =>
               onSuccess(loginUserAccount(identifier, password)) {
-                case UserAccountLoginResponse(role) =>
-                  complete(StatusCodes.OK, role)
-                case UserAccountLoginResponse(reason) =>
+                case UserAccountLoginResponse(responseBody) =>
+                  complete(StatusCodes.OK, responseBody)
+                case UserAccountLoginResponseFailed(reason) =>
                   complete(StatusCodes.Unauthorized, reason)
-                case UserAccountSearchFailed(reason) =>
+                case UserAccountLoginResponseFailed(reason) =>
                   complete(StatusCodes.NotFound, reason)
               }
             }

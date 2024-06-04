@@ -3,7 +3,7 @@ package com.inventario.server.app
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.inventario.server.actors.UserAccount
-import com.inventario.server.actors.UserAccount.Command
+import com.inventario.server.actors.UserAccount.UserCommand
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http
 import akka.util.Timeout
@@ -16,7 +16,7 @@ import scala.util.{Success, Failure}
 
 object InventarioApp {
 
-  def startHttpServer(userAccount: ActorRef[Command])(implicit system: ActorSystem[_]): Unit = {
+  def startHttpServer(userAccount: ActorRef[UserCommand])(implicit system: ActorSystem[_]): Unit = {
     implicit val ec: ExecutionContext = system.executionContext
     val router =  new InventarioRouter(userAccount)
     val routes = router.routes
@@ -35,7 +35,7 @@ object InventarioApp {
 
   def main(args: Array[String]): Unit = {
     trait RootCommand
-    case class RetrieveUserAccountActor(replyTo: ActorRef[ActorRef[Command]]) extends RootCommand
+    case class RetrieveUserAccountActor(replyTo: ActorRef[ActorRef[UserCommand]]) extends RootCommand
 
     val rootBehavior: Behavior[RootCommand] = Behaviors.setup {context =>
       val userAccountActor = context.spawn(UserAccount(), "user")

@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/akka-server.iml" filepath="$PROJECT_DIR$/.idea/modules/akka-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/akka-server.akka-server-build.iml" filepath="$PROJECT_DIR$/.idea/modules/akka-server.akka-server-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/inventario-back.iml" filepath="$PROJECT_DIR$/.idea/modules/inventario-back.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/inventario-back.inventario-back-build.iml" filepath="$PROJECT_DIR$/.idea/modules/inventario-back.inventario-back-build.iml" />
     </modules>
   </component>
 </project>

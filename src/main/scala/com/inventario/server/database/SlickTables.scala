@@ -24,4 +24,12 @@ object SlickTables {
   def createUser(user: User): Future[Int] = {
     DatabaseConnection.db.run(userTable += user)
   }
+
+
+  def searchUser(searchTerm: String): Future[Option[User]] = {
+    val searchQuery = userTable.filter(user => user.name === searchTerm || user.email === searchTerm).result.headOption
+
+    DatabaseConnection.db.run(searchQuery)
+  }
+
 }

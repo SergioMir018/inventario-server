@@ -1,4 +1,4 @@
-name := "akka-server"
+name := "inventario-back"
 
 lazy val akkaHttpVersion = "10.2.8"
 lazy val akkaVersion     = "2.6.9"

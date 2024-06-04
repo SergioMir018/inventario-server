@@ -11,14 +11,17 @@ import scala.util.{Failure, Success}
 
 object UserAccount {
 
-  sealed trait Command
-  final case class CreateUserAccount(name: String, email: String, password: String, role: String, replyTo: ActorRef[Response]) extends Command
+  sealed trait UserCommand
+  final case class CreateUserAccount(name: String, email: String, password: String, role: String, replyTo: ActorRef[UserResponse]) extends UserCommand
+  final case class GetUserAccount(searchValue: String, replyTo: ActorRef[UserResponse]) extends UserCommand
 
-  sealed trait Response
-  final case class UserAccountCreated(id: UUID) extends Response
-  final case class UserAccountCreationFailed(reason: String) extends Response
+  sealed trait UserResponse
+  final case class CreateUserAccountResponse(id: UUID) extends UserResponse
+  final case class UserAccountCreationFailed(reason: String) extends UserResponse
+  final case class GetUserAccountResponse(user: User) extends UserResponse
+  final case class UserAccountSearchFailed(reason: String) extends UserResponse
 
-  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>
+  def apply(): Behavior[UserCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContextExecutor = context.executionContext
 
     message match {
@@ -28,11 +31,22 @@ object UserAccount {
 
         SlickTables.createUser(user).onComplete {
           case Success(_) =>
-            replyTo ! UserAccountCreated(id)
+            replyTo ! CreateUserAccountResponse(id)
           case Failure(ex) =>
             replyTo ! UserAccountCreationFailed(ex.getMessage)
         }
 
+        Behaviors.same
+      case GetUserAccount(searchValue, replyTo) =>
+
+        SlickTables.searchUser(searchValue).onComplete {
+          case Success(Some(user)) =>
+            replyTo ! GetUserAccountResponse(user)
+          case Success(None) =>
+            replyTo ! UserAccountSearchFailed("This user doesn't exists")
+          case Failure(ex) =>
+            replyTo ! UserAccountSearchFailed(ex.getMessage)
+        }
         Behaviors.same
     }
   }

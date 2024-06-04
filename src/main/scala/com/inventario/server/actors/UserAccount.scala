@@ -14,12 +14,14 @@ object UserAccount {
   sealed trait UserCommand
   final case class CreateUserAccount(name: String, email: String, password: String, role: String, replyTo: ActorRef[UserResponse]) extends UserCommand
   final case class GetUserAccount(searchValue: String, replyTo: ActorRef[UserResponse]) extends UserCommand
+  final case class UserAccountLogin(identifier: String, password: String, replyTo: ActorRef[UserResponse]) extends UserCommand
 
   sealed trait UserResponse
   final case class CreateUserAccountResponse(id: UUID) extends UserResponse
   final case class UserAccountCreationFailed(reason: String) extends UserResponse
   final case class GetUserAccountResponse(user: User) extends UserResponse
   final case class UserAccountSearchFailed(reason: String) extends UserResponse
+  final case class UserAccountLoginResponse(response: String) extends UserResponse
 
   def apply(): Behavior[UserCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContextExecutor = context.executionContext
@@ -38,7 +40,6 @@ object UserAccount {
 
         Behaviors.same
       case GetUserAccount(searchValue, replyTo) =>
-
         SlickTables.searchUser(searchValue).onComplete {
           case Success(Some(user)) =>
             replyTo ! GetUserAccountResponse(user)
@@ -47,6 +48,20 @@ object UserAccount {
           case Failure(ex) =>
             replyTo ! UserAccountSearchFailed(ex.getMessage)
         }
+
+        Behaviors.same
+      case UserAccountLogin(identifier, password, replyTo) =>
+        SlickTables.searchUser(identifier).onComplete {
+          case Success(Some(user)) if password.equals(user.password) =>
+            replyTo ! UserAccountLoginResponse(user.role)
+          case Success(Some(_)) =>
+            replyTo ! UserAccountLoginResponse("Invalid password")
+          case Success(None) =>
+            replyTo ! UserAccountLoginResponse("User not found")
+          case Failure(ex) =>
+            replyTo ! UserAccountLoginResponse(ex.getMessage)
+        }
+
         Behaviors.same
     }
   }

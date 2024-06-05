@@ -1,57 +1,43 @@
 package com.inventario.server.app
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.actors.UserActor
-import com.inventario.server.actors.UserActor.UserCommand
-import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http
-import akka.util.Timeout
-import com.inventario.server.http.UserActorRouter
+import com.inventario.server.actors.{ProductActor, UserActor}
+import com.inventario.server.http.{ProductActorRouter, StaticFileRouter, UserActorRouter}
+import akka.http.scaladsl.server.Directives._
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
-import scala.util.{Success, Failure}
-
+import scala.concurrent.ExecutionContextExecutor
+import scala.util.{Failure, Success}
 
 object InventarioApp {
-
-  def startHttpServer(userAccount: ActorRef[UserCommand])(implicit system: ActorSystem[_]): Unit = {
-    implicit val ec: ExecutionContext = system.executionContext
-    val router =  new UserActorRouter(userAccount)
-    val routes = router.routes
-
-    val httpBindingFuture = Http().newServerAt("localhost", 8080).bind(routes)
-
-    httpBindingFuture.onComplete {
-      case Success(binding) =>
-        val address = binding.localAddress
-        system.log.info(s"Server online at http://${address.getHostString}:${address.getPort}")
-      case Failure(ex) =>
-        system.log.error(s"Failed to bind HTTP server due, $ex")
-        system.terminate()
-    }
-  }
-
   def main(args: Array[String]): Unit = {
-    trait RootCommand
-    case class RetrieveUserAccountActor(replyTo: ActorRef[ActorRef[UserCommand]]) extends RootCommand
+    val rootBehavior = Behaviors.setup[Nothing] { context =>
+      implicit val system: ActorSystem[Nothing] = context.system
+      implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-    val rootBehavior: Behavior[RootCommand] = Behaviors.setup {context =>
-      val userAccountActor = context.spawn(UserActor(), "user")
+      val userActor = context.spawn(UserActor(), "UserActor")
+      val productActor = context.spawn(ProductActor(), "ProductActor")
+      val staticFileRouter = new StaticFileRouter
 
-      Behaviors.receiveMessage {
-        case RetrieveUserAccountActor(replyTo) =>
-          replyTo ! userAccountActor
-          Behaviors.same
+      val userRouter = new UserActorRouter(userActor)
+      val productRouter = new ProductActorRouter(productActor)
+
+      val routes = userRouter.routes ~ productRouter.routes ~ staticFileRouter.staticFilesRoute
+      val httpBinding = Http().newServerAt("localhost", 8080).bind(routes)
+
+      httpBinding.onComplete {
+        case Success(binding) =>
+          val address = binding.localAddress
+          context.system.log.info(s"Server online at http://${address.getHostString}:${address.getPort}")
+        case Failure(exception) =>
+          context.system.log.error(s"Failed to bind HTTP endpoint, terminating system", exception)
+          context.system.terminate()
       }
+
+      Behaviors.empty
     }
 
-    implicit val system: ActorSystem[RootCommand] = ActorSystem(rootBehavior, "InventarioSystem")
-    implicit val timeout: Timeout = Timeout(5.seconds)
-    implicit val ec: ExecutionContext = system.executionContext
-
-    val userActorFuture = system.ask(replyTo =>  RetrieveUserAccountActor(replyTo))
-    userActorFuture.foreach(startHttpServer)
+    val system = ActorSystem[Nothing](rootBehavior, "InventarioSystem")
   }
 }

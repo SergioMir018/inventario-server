@@ -1,5 +1,6 @@
 package com.inventario.server.database
 
+import com.inventario.server.database.DBUserTable.userTable
 import slick.jdbc.PostgresProfile.api._
 import slick.lifted.ProvenShape
 
@@ -56,5 +57,11 @@ object DBProductTable {
 
   def insertProduct(product: Product): Future[Int] = {
     DatabaseConnection.db.run(productTable += product)
+  }
+
+  def searchProductById(id: UUID): Future[Option[Product]] = {
+    val searchQuery = productTable.filter(product => product.product_id === id).result.headOption
+
+    DatabaseConnection.db.run(searchQuery)
   }
 }

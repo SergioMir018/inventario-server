@@ -26,8 +26,12 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
     product.ask(replyTo => request.toCommand(replyTo))
   }
 
-  private def searchProductImageById(id: String): Future[ProductResponse] = {
-    product.ask(replyTo => GetProductImage(id, replyTo))
+  private def searchProductById(id: String): Future[ProductResponse] = {
+    product.ask(replyTo => GetProductById(id, replyTo))
+  }
+
+  private def getAllProducts: Future[ProductResponse] = {
+    product.ask(replyTo => GetAllProducts(replyTo))
   }
 
   val routes: Route = corsHandler {
@@ -36,6 +40,16 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
         .withHeaders(`Access-Control-Allow-Methods`(OPTIONS, POST, GET, PUT)))
     } ~
       pathPrefix("product") {
+        path("all") {
+          get {
+            onSuccess(getAllProducts) {
+              case GetAllProductsResponse(allProducts) =>
+                complete(StatusCodes.OK, allProducts)
+              case GetAllProductsFailedResponse(reason) =>
+                complete(StatusCodes.InternalServerError, s"Failed to get all products: $reason")
+            }
+          }
+        } ~
         path("create") {
           post {
             entity(as[ProductInsertionRequest]) { request =>
@@ -48,13 +62,13 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
             }
           }
         } ~
-          path("image") {
+          path("searchId") {
             get {
               parameter("id") { id =>
-                onSuccess(searchProductImageById(id)) {
-                  case GetProductImageResponse(product) =>
+                onSuccess(searchProductById(id)) {
+                  case GetProductByIdResponse(product) =>
                     complete(StatusCodes.OK, product)
-                  case GetProductImageFailedResponse(reason) =>
+                  case GetProductByIdFailedResponse(reason) =>
                     complete(StatusCodes.NotFound, s"Product not found: $reason")
                 }
               }

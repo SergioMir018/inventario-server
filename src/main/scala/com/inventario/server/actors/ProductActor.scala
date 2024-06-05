@@ -13,13 +13,16 @@ object ProductActor {
 
   sealed trait ProductCommand
   final case class InsertNewProduct(name: String, short_desc: String, desc: String, photo: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
-  final case class GetProductImage(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class GetProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
 
   sealed trait ProductResponse
   final case class InsertNewProductResponse(id: UUID) extends ProductResponse
   final case class InsertNewProductFailedResponse(reason: String) extends ProductResponse
-  final case class GetProductImageResponse(imageUrl: String) extends ProductResponse
-  final case class GetProductImageFailedResponse(reason: String) extends ProductResponse
+  final case class GetProductByIdResponse(product: Product) extends ProductResponse
+  final case class GetProductByIdFailedResponse(reason: String) extends ProductResponse
+  final case class GetAllProductsResponse(allProducts: Seq[Product]) extends ProductResponse
+  final case class GetAllProductsFailedResponse(reason: String) extends ProductResponse
 
   def apply(): Behavior[ProductCommand] = Behaviors.receive{ (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
@@ -37,16 +40,25 @@ object ProductActor {
         }
 
         Behaviors.same
-      case GetProductImage(id, replyTo) =>
+      case GetProductById(id, replyTo) =>
         val searchId = UUID.fromString(id)
 
         DBProductTable.searchProductById(searchId).onComplete {
           case Success(Some(product)) =>
-            replyTo ! GetProductImageResponse(product.photo)
+            replyTo ! GetProductByIdResponse(product)
           case Success(None) =>
-            replyTo ! GetProductImageFailedResponse("Product not found")
+            replyTo ! GetProductByIdFailedResponse("Product not found")
           case Failure(ex) =>
-            replyTo ! GetProductImageFailedResponse(ex.getMessage)
+            replyTo ! GetProductByIdFailedResponse(ex.getMessage)
+        }
+
+        Behaviors.same
+      case GetAllProducts(replyTo) =>
+        DBProductTable.getAllProducts.onComplete {
+          case Success(products) =>
+            replyTo ! GetAllProductsResponse(products)
+          case Failure(ex) =>
+            replyTo ! GetAllProductsFailedResponse(ex.getMessage)
         }
 
         Behaviors.same

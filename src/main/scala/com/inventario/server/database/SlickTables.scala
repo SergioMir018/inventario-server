@@ -55,6 +55,10 @@ object DBUserTable {
 object DBProductTable {
   val productTable = TableQuery[ProductTable]
 
+  def getAllProducts: Future[Seq[Product]] = {
+    DatabaseConnection.db.run(productTable.result)
+  }
+
   def insertProduct(product: Product): Future[Int] = {
     DatabaseConnection.db.run(productTable += product)
   }

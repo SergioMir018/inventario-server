@@ -15,8 +15,8 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-case class ProductInsertionRequest(name: String, short_desc: String, desc: String, photo: String) {
-  def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, short_desc, desc, photo, replyTo)
+case class ProductInsertionRequest(name: String, short_desc: String, desc: String, price: Float, photo: String) {
+  def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, short_desc, desc, price, photo, replyTo)
 }
 
 class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: ActorSystem[_]) extends CORSHandler {

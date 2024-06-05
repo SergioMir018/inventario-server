@@ -12,7 +12,7 @@ import scala.util.{Failure, Success}
 object ProductActor {
 
   sealed trait ProductCommand
-  final case class InsertNewProduct(name: String, short_desc: String, desc: String, photo: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class InsertNewProduct(name: String, short_desc: String, desc: String, price: Float, photo: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
 
@@ -28,9 +28,9 @@ object ProductActor {
     implicit val ec: ExecutionContext = context.executionContext
 
     message match {
-      case InsertNewProduct(name, short_desc, desc, photo, replyTo) =>
+      case InsertNewProduct(name, short_desc, desc, price, photo, replyTo) =>
         val id = UUID.randomUUID()
-        val product = Product(id, name, short_desc, desc, photo)
+        val product = Product(id, name, short_desc, desc, price, photo)
 
         DBProductTable.insertProduct(product).onComplete {
           case Success(_) =>

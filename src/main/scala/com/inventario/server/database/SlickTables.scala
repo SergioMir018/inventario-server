@@ -8,7 +8,7 @@ import java.util.UUID
 import scala.concurrent.Future
 
 case class User(id: UUID, name: String, email: String, password: String, role: String)
-case class Product(id: UUID, name: String, short_desc: String, desc: String, photo: String)
+case class Product(id: UUID, name: String, short_desc: String, desc: String, price: Float, photo: String)
 
 class UserTable(tag: Tag) extends Table[User](tag, Some("users"), "User") {
   def id = column[UUID]("user_id", O.PrimaryKey)
@@ -25,9 +25,10 @@ class ProductTable(tag: Tag) extends Table[Product](tag, Some("products"), "Prod
   def name = column[String]("name")
   def short_desc = column[String]("short_desc")
   def desc = column[String]("desc")
+  def price = column[Float]("price")
   def photo = column[String]("photo")
 
-  def * = (product_id, name, short_desc, desc, photo).mapTo[Product]
+  def * = (product_id, name, short_desc, desc, price, photo).mapTo[Product]
 }
 
 object DBUserTable {

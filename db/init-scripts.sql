@@ -14,5 +14,6 @@ create table if not exists products."Product" (
     "name" VARCHAR NOT NULL,
     "short_desc" VARCHAR NOT NULL,
     "desc" VARCHAR NOT NULL,
+    "price" FLOAT NOT NULL,
     "photo" VARCHAR
 );

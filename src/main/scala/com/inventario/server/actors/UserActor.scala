@@ -3,13 +3,13 @@ package com.inventario.server.actors
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.Behavior
-import com.inventario.server.database.{DBTables, User}
+import com.inventario.server.database.{DBUserTable, User}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
 
-object UserAccount {
+object UserActor {
 
   sealed trait UserCommand
   final case class CreateUserAccount(name: String, email: String, password: String, role: String, replyTo: ActorRef[UserResponse]) extends UserCommand
@@ -38,7 +38,7 @@ object UserAccount {
         val id = UUID.randomUUID()
         val user = User(id, name, email, password, role)
 
-        DBTables.createUser(user).onComplete {
+        DBUserTable.createUser(user).onComplete {
           case Success(_) =>
             replyTo ! CreateUserAccountResponse(id)
           case Failure(ex) =>
@@ -47,7 +47,7 @@ object UserAccount {
 
         Behaviors.same
       case GetUserAccountBySearchTerm(searchValue, replyTo) =>
-        DBTables.searchUserByTerm(searchValue).onComplete {
+        DBUserTable.searchUserByTerm(searchValue).onComplete {
           case Success(Some(user)) =>
             replyTo ! GetUserAccountBySearchTermResponse(user)
           case Success(None) =>
@@ -58,7 +58,7 @@ object UserAccount {
 
         Behaviors.same
       case UserAccountLogin(identifier, password, replyTo) =>
-        DBTables.searchUserByTerm(identifier).onComplete {
+        DBUserTable.searchUserByTerm(identifier).onComplete {
           case Success(Some(user)) if password.equals(user.password) =>
             val loginResponse = LoginResponseBody(user.role, user.id)
             replyTo ! UserAccountLoginResponse(loginResponse)
@@ -73,7 +73,7 @@ object UserAccount {
         Behaviors.same
       case GetUserAccountById(id, replyTo) =>
         val searchId = UUID.fromString(id)
-        DBTables.searchUserById(searchId).onComplete {
+        DBUserTable.searchUserById(searchId).onComplete {
           case Success(Some(user)) =>
             val userDetails = AccountDetails(user.name, user.email)
             replyTo ! GetUserAccountByIdResponse(userDetails)

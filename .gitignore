@@ -90,6 +90,7 @@ project/plugins/project/
 .history
 .cache
 .lib/
+src/main/resources/public/
 
 ### Scala template
 *.class

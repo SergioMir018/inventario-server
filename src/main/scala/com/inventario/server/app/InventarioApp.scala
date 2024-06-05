@@ -2,12 +2,12 @@ package com.inventario.server.app
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.actors.UserAccount
-import com.inventario.server.actors.UserAccount.UserCommand
+import com.inventario.server.actors.UserActor
+import com.inventario.server.actors.UserActor.UserCommand
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http
 import akka.util.Timeout
-import com.inventario.server.http.InventarioRouter
+import com.inventario.server.http.UserActorRouter
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -18,7 +18,7 @@ object InventarioApp {
 
   def startHttpServer(userAccount: ActorRef[UserCommand])(implicit system: ActorSystem[_]): Unit = {
     implicit val ec: ExecutionContext = system.executionContext
-    val router =  new InventarioRouter(userAccount)
+    val router =  new UserActorRouter(userAccount)
     val routes = router.routes
 
     val httpBindingFuture = Http().newServerAt("localhost", 8080).bind(routes)
@@ -38,7 +38,7 @@ object InventarioApp {
     case class RetrieveUserAccountActor(replyTo: ActorRef[ActorRef[UserCommand]]) extends RootCommand
 
     val rootBehavior: Behavior[RootCommand] = Behaviors.setup {context =>
-      val userAccountActor = context.spawn(UserAccount(), "user")
+      val userAccountActor = context.spawn(UserActor(), "user")
 
       Behaviors.receiveMessage {
         case RetrieveUserAccountActor(replyTo) =>

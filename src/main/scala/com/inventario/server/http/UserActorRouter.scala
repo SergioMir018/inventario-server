@@ -4,10 +4,9 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive0, Route}
+import akka.http.scaladsl.server.Route
 import akka.util.Timeout
-import com.inventario.server.actors.UserAccount
-import com.inventario.server.actors.UserAccount._
+import com.inventario.server.actors.UserActor._
 import io.circe.generic.auto._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import akka.http.scaladsl.model.HttpMethods._
@@ -20,39 +19,7 @@ case class AccountCreationRequest(name: String, email: String, password: String,
   def toCommand(replyTo: ActorRef[UserResponse]): UserCommand = CreateUserAccount(name, email, password, role, replyTo)
 }
 
-trait CORSHandler{
-
-  private val corsResponseHeaders = List(
-    `Access-Control-Allow-Origin`.*,
-    `Access-Control-Allow-Credentials`(true),
-    `Access-Control-Allow-Headers`("Authorization",
-      "Content-Type", "X-Requested-With")
-  )
-
-  //this directive adds access control headers to normal responses
-  private def addAccessControlHeaders: Directive0 = {
-    respondWithHeaders(corsResponseHeaders)
-  }
-
-  //this handles preflight OPTIONS requests.
-  private def preflightRequestHandler: Route = options {
-    complete(HttpResponse(StatusCodes.OK).
-      withHeaders(`Access-Control-Allow-Methods`(OPTIONS, POST, PUT, GET, DELETE)))
-  }
-
-  // Wrap the Route with this method to enable adding of CORS headers
-  def corsHandler(r: Route): Route = addAccessControlHeaders {
-    preflightRequestHandler ~ r
-  }
-
-  // Helper method to add CORS headers to HttpResponse
-  // preventing duplication of CORS headers across code
-  def addCORSHeaders(response: HttpResponse):HttpResponse =
-    response.withHeaders(corsResponseHeaders)
-
-}
-
-class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
+class UserActorRouter(userAccount: ActorRef[UserCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
 
   implicit val timeout: Timeout = 3.seconds
 
@@ -72,8 +39,6 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
     userAccount.ask(replyTo => UserAccountLogin(identifier, password, replyTo))
   }
 
-  private val cors = new CORSHandler {}
-
   val routes: Route = corsHandler {
     pathPrefix("user") {
       path("create") {
@@ -81,7 +46,7 @@ class InventarioRouter(userAccount: ActorRef[UserAccount.UserCommand])(implicit 
           entity(as[AccountCreationRequest]) { request =>
             onSuccess(createUserAccount(request)) {
               case CreateUserAccountResponse(id) =>
-                complete(StatusCodes.Created, s"User created with ID: ${id.toString}")
+                complete(StatusCodes.Created, id.toString)
               case UserAccountCreationFailedResponse(reason) =>
                 complete(StatusCodes.InternalServerError, s"Failed to create user: $reason")
             }

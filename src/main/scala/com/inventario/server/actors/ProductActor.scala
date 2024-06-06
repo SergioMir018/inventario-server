@@ -4,6 +4,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.inventario.server.database.{DBProductTable, Product}
 
+import java.nio.file.{Files, Paths}
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -67,9 +68,16 @@ object ProductActor {
         Behaviors.same
       case DeleteProductById(id, replyTo) =>
         val deleteId = UUID.fromString(id)
+        var deletePath = "src/main/resources/"
+
+        DBProductTable.searchProductById(deleteId).onComplete {
+          case Success(Some(product)) =>
+            deletePath = deletePath.concat(product.photo)
+        }
 
         DBProductTable.deleteProductById(deleteId).onComplete {
           case Success(_) =>
+            Files.deleteIfExists(Paths.get(deletePath))
             replyTo ! DeleteProductByIdResponse(success = true)
           case Failure(ex) => replyTo ! DeleteProductByIdFailedResponse(ex.getMessage)
         }

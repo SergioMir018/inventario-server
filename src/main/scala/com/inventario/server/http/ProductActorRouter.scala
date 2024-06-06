@@ -12,11 +12,13 @@ import com.inventario.server.actors.ProductActor._
 import io.circe.generic.auto._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 
+import java.nio.file.{Files, Paths}
+import java.util.Base64
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-case class ProductInsertionRequest(name: String, short_desc: String, desc: String, price: Float, photo: String) {
-  def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, short_desc, desc, price, photo, replyTo)
+case class ProductInsertionRequest(name: String, short_desc: String, desc: String, price: Float, photo: String, imageExt: String) {
+  def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, short_desc, desc, price, imageExt, replyTo)
 }
 
 class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
@@ -32,6 +34,27 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
 
   private def getAllProducts: Future[ProductResponse] = {
     product.ask(replyTo => GetAllProducts(replyTo))
+  }
+
+  private def saveImage(id: String, base64Image: String, photoExt: String): Unit = {
+    try {
+      if (isValidBase64(base64Image)) {
+        val imageBytes = Base64.getDecoder.decode(base64Image)
+        val fileRoute = Paths.get("src/main/resources/public/photos", s"$id.$photoExt")
+
+        Files.write(fileRoute, imageBytes)
+      } else {
+        system.log.error("The base64 string contains invalid characters")
+      }
+    } catch {
+      case e: IllegalArgumentException =>
+        system.log.error(s"Error while decoding base64 string: ${e.getMessage}")
+    }
+  }
+
+  private def isValidBase64(base64String: String): Boolean = {
+    val base64Pattern = "^[a-zA-Z0-9+/]*={0,2}$".r
+    base64Pattern.pattern.matcher(base64String).matches()
   }
 
   val routes: Route = corsHandler {
@@ -55,6 +78,7 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
             entity(as[ProductInsertionRequest]) { request =>
               onSuccess(insertProduct(request)) {
                 case InsertNewProductResponse(id) =>
+                  saveImage(id.toString, request.photo, request.imageExt)
                   complete(StatusCodes.Created, id.toString)
                 case InsertNewProductFailedResponse(reason) =>
                   complete(StatusCodes.InternalServerError, s"Failed to create product: $reason")

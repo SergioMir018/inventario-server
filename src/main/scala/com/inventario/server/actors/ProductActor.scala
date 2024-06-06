@@ -2,7 +2,6 @@ package com.inventario.server.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.actors.UserActor.{GetUserAccountByIdFailedResponse, UserAccountLoginFailedResponse}
 import com.inventario.server.database.{DBProductTable, Product}
 
 import java.util.UUID
@@ -12,7 +11,7 @@ import scala.util.{Failure, Success}
 object ProductActor {
 
   sealed trait ProductCommand
-  final case class InsertNewProduct(name: String, short_desc: String, desc: String, price: Float, photo: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class InsertNewProduct(name: String, short_desc: String, desc: String, price: Float, photoExt: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
 
@@ -28,9 +27,10 @@ object ProductActor {
     implicit val ec: ExecutionContext = context.executionContext
 
     message match {
-      case InsertNewProduct(name, short_desc, desc, price, photo, replyTo) =>
+      case InsertNewProduct(name, short_desc, desc, price, photoExt,replyTo) =>
         val id = UUID.randomUUID()
-        val product = Product(id, name, short_desc, desc, price, photo)
+        val photoPath = s"public/photos/$id.$photoExt"
+        val product = Product(id, name, short_desc, desc, price, photoPath)
 
         DBProductTable.insertProduct(product).onComplete {
           case Success(_) =>

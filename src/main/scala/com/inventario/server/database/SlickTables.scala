@@ -69,4 +69,10 @@ object DBProductTable {
 
     DatabaseConnection.db.run(searchQuery)
   }
+
+  def deleteProductById(id: UUID): Future[Int] = {
+    val deleteQuery = productTable.filter(product => product.product_id === id)
+
+    DatabaseConnection.db.run(deleteQuery.delete)
+  }
 }

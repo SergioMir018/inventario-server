@@ -14,6 +14,7 @@ object ProductActor {
   final case class InsertNewProduct(name: String, short_desc: String, desc: String, price: Float, photoExt: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class DeleteProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
 
   sealed trait ProductResponse
   final case class InsertNewProductResponse(id: UUID) extends ProductResponse
@@ -22,12 +23,14 @@ object ProductActor {
   final case class GetProductByIdFailedResponse(reason: String) extends ProductResponse
   final case class GetAllProductsResponse(allProducts: Seq[Product]) extends ProductResponse
   final case class GetAllProductsFailedResponse(reason: String) extends ProductResponse
+  final case class DeleteProductByIdResponse(success: Boolean) extends ProductResponse
+  final case class DeleteProductByIdFailedResponse(reason: String) extends ProductResponse
 
   def apply(): Behavior[ProductCommand] = Behaviors.receive{ (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
 
     message match {
-      case InsertNewProduct(name, short_desc, desc, price, photoExt,replyTo) =>
+      case InsertNewProduct(name, short_desc, desc, price, photoExt, replyTo) =>
         val id = UUID.randomUUID()
         val photoPath = s"public/photos/$id.$photoExt"
         val product = Product(id, name, short_desc, desc, price, photoPath)
@@ -59,6 +62,16 @@ object ProductActor {
             replyTo ! GetAllProductsResponse(products)
           case Failure(ex) =>
             replyTo ! GetAllProductsFailedResponse(ex.getMessage)
+        }
+
+        Behaviors.same
+      case DeleteProductById(id, replyTo) =>
+        val deleteId = UUID.fromString(id)
+
+        DBProductTable.deleteProductById(deleteId).onComplete {
+          case Success(_) =>
+            replyTo ! DeleteProductByIdResponse(success = true)
+          case Failure(ex) => replyTo ! DeleteProductByIdFailedResponse(ex.getMessage)
         }
 
         Behaviors.same

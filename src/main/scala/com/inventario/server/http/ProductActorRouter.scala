@@ -2,18 +2,17 @@ package com.inventario.server.http
 
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
-import akka.http.scaladsl.model.HttpMethods.{GET, OPTIONS, POST, PUT}
+import akka.http.scaladsl.model.HttpMethods.{DELETE, GET, OPTIONS, POST, PUT}
 import akka.http.scaladsl.model.headers.`Access-Control-Allow-Methods`
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 import com.inventario.server.actors.ProductActor._
+import com.inventario.server.utils.ImageUtils.saveImage
 import io.circe.generic.auto._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 
-import java.nio.file.{Files, Paths}
-import java.util.Base64
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
@@ -36,31 +35,14 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
     product.ask(replyTo => GetAllProducts(replyTo))
   }
 
-  private def saveImage(id: String, base64Image: String, photoExt: String): Unit = {
-    try {
-      if (isValidBase64(base64Image)) {
-        val imageBytes = Base64.getDecoder.decode(base64Image)
-        val fileRoute = Paths.get("src/main/resources/public/photos", s"$id.$photoExt")
-
-        Files.write(fileRoute, imageBytes)
-      } else {
-        system.log.error("The base64 string contains invalid characters")
-      }
-    } catch {
-      case e: IllegalArgumentException =>
-        system.log.error(s"Error while decoding base64 string: ${e.getMessage}")
-    }
-  }
-
-  private def isValidBase64(base64String: String): Boolean = {
-    val base64Pattern = "^[a-zA-Z0-9+/]*={0,2}$".r
-    base64Pattern.pattern.matcher(base64String).matches()
+  private def deleteProductById(id: String): Future[ProductResponse] = {
+    product.ask(replyTo => DeleteProductById(id, replyTo))
   }
 
   val routes: Route = corsHandler {
     options {
       complete(HttpResponse(StatusCodes.OK)
-        .withHeaders(`Access-Control-Allow-Methods`(OPTIONS, POST, GET, PUT)))
+        .withHeaders(`Access-Control-Allow-Methods`(OPTIONS, POST, GET, PUT, DELETE)))
     } ~
       pathPrefix("product") {
         path("all") {
@@ -78,7 +60,7 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
             entity(as[ProductInsertionRequest]) { request =>
               onSuccess(insertProduct(request)) {
                 case InsertNewProductResponse(id) =>
-                  saveImage(id.toString, request.photo, request.imageExt)
+                  saveImage(id.toString, request.photo, request.imageExt, system)
                   complete(StatusCodes.Created, id.toString)
                 case InsertNewProductFailedResponse(reason) =>
                   complete(StatusCodes.InternalServerError, s"Failed to create product: $reason")
@@ -93,6 +75,18 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
                   case GetProductByIdResponse(product) =>
                     complete(StatusCodes.OK, product)
                   case GetProductByIdFailedResponse(reason) =>
+                    complete(StatusCodes.NotFound, s"Product not found: $reason")
+                }
+              }
+            }
+          } ~
+          path("delete") {
+            delete {
+              parameter("id") { id =>
+                onSuccess(deleteProductById(id)) {
+                  case DeleteProductByIdResponse(success) =>
+                    complete(StatusCodes.OK, success)
+                  case DeleteProductByIdFailedResponse(reason) =>
                     complete(StatusCodes.NotFound, s"Product not found: $reason")
                 }
               }

@@ -3,10 +3,10 @@ package com.inventario.server.actors
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.Behavior
-import com.inventario.server.database.{DBUserTable, User}
+import com.inventario.server.database.{UserTable, User}
 
 import java.util.UUID
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object UserActor {
@@ -31,14 +31,14 @@ object UserActor {
   final case class AccountDetails(name: String, email: String)
 
   def apply(): Behavior[UserCommand] = Behaviors.receive { (context, message) =>
-    implicit val ec: ExecutionContextExecutor = context.executionContext
+    implicit val ec: ExecutionContext = context.executionContext
 
     message match {
       case CreateUserAccount(name, email, password, role, replyTo) =>
         val id = UUID.randomUUID()
         val user = User(id, name, email, password, role)
 
-        DBUserTable.createUser(user).onComplete {
+        UserTable.createUser(user).onComplete {
           case Success(_) =>
             replyTo ! CreateUserAccountResponse(id)
           case Failure(ex) =>
@@ -47,7 +47,7 @@ object UserActor {
 
         Behaviors.same
       case GetUserAccountBySearchTerm(searchValue, replyTo) =>
-        DBUserTable.searchUserByTerm(searchValue).onComplete {
+        UserTable.searchUserByTerm(searchValue).onComplete {
           case Success(Some(user)) =>
             replyTo ! GetUserAccountBySearchTermResponse(user)
           case Success(None) =>
@@ -58,7 +58,7 @@ object UserActor {
 
         Behaviors.same
       case UserAccountLogin(identifier, password, replyTo) =>
-        DBUserTable.searchUserByTerm(identifier).onComplete {
+        UserTable.searchUserByTerm(identifier).onComplete {
           case Success(Some(user)) if password.equals(user.password) =>
             val loginResponse = LoginResponseBody(user.role, user.id)
             replyTo ! UserAccountLoginResponse(loginResponse)
@@ -73,7 +73,7 @@ object UserActor {
         Behaviors.same
       case GetUserAccountById(id, replyTo) =>
         val searchId = UUID.fromString(id)
-        DBUserTable.searchUserById(searchId).onComplete {
+        UserTable.searchUserById(searchId).onComplete {
           case Success(Some(user)) =>
             val userDetails = AccountDetails(user.name, user.email)
             replyTo ! GetUserAccountByIdResponse(userDetails)

@@ -2,7 +2,7 @@ package com.inventario.server.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.database.{DBProductTable, Product}
+import com.inventario.server.database.{ProductTable, Product}
 
 import java.nio.file.{Files, Paths}
 import java.util.UUID
@@ -36,7 +36,7 @@ object ProductActor {
         val photoPath = s"public/photos/$id.$photoExt"
         val product = Product(id, name, short_desc, desc, price, photoPath)
 
-        DBProductTable.insertProduct(product).onComplete {
+        ProductTable.insertProduct(product).onComplete {
           case Success(_) =>
             replyTo ! InsertNewProductResponse(id)
           case Failure(ex) =>
@@ -47,7 +47,7 @@ object ProductActor {
       case GetProductById(id, replyTo) =>
         val searchId = UUID.fromString(id)
 
-        DBProductTable.searchProductById(searchId).onComplete {
+        ProductTable.searchProductById(searchId).onComplete {
           case Success(Some(product)) =>
             replyTo ! GetProductByIdResponse(product)
           case Success(None) =>
@@ -58,7 +58,7 @@ object ProductActor {
 
         Behaviors.same
       case GetAllProducts(replyTo) =>
-        DBProductTable.getAllProducts.onComplete {
+        ProductTable.getAllProducts.onComplete {
           case Success(products) =>
             replyTo ! GetAllProductsResponse(products)
           case Failure(ex) =>
@@ -70,12 +70,12 @@ object ProductActor {
         val deleteId = UUID.fromString(id)
         var deletePath = "src/main/resources/"
 
-        DBProductTable.searchProductById(deleteId).onComplete {
+        ProductTable.searchProductById(deleteId).onComplete {
           case Success(Some(product)) =>
             deletePath = deletePath.concat(product.photo)
         }
 
-        DBProductTable.deleteProductById(deleteId).onComplete {
+        ProductTable.deleteProductById(deleteId).onComplete {
           case Success(_) =>
             Files.deleteIfExists(Paths.get(deletePath))
             replyTo ! DeleteProductByIdResponse(success = true)

@@ -15,7 +15,7 @@ import java.util.{Date, UUID}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
-case class OrderProductRequest(product_id: String, quantity: Int)
+case class OrderProductRequest(productId: String, quantity: Int)
 
 case class OrderCreationRequest(clientID: String, creationDate: String, totalPayment: Float, products: Seq[OrderProductRequest], details: OrderDetailsRequest) {
   private def parseDate(dateString: String, pattern: String = "yyyy-MM-dd"): Date = {
@@ -25,7 +25,7 @@ case class OrderCreationRequest(clientID: String, creationDate: String, totalPay
   }
 
   private def convertProductIDs(products: Seq[OrderProductRequest]): Seq[FormatedOrderProductRequest] = {
-    products.map(product => FormatedOrderProductRequest(UUID.fromString(product.product_id), product.quantity))
+    products.map(product => FormatedOrderProductRequest(UUID.fromString(product.productId), product.quantity))
   }
 
   def toCommand(replyTo: ActorRef[OrderResponse]): OrderCommand = {
@@ -45,6 +45,10 @@ class OrderActorRouter(order: ActorRef[OrderCommand])(implicit system: ActorSyst
 
   private def getAllOrders: Future[OrderResponse] = {
     order.ask(replyTo => GetAllOrders(replyTo))
+  }
+
+  private def searchOrderById(id: String): Future[OrderResponse] = {
+    order.ask(replyTo => GetOrderById(id, replyTo))
   }
 
   val routes = corsHandler {
@@ -72,6 +76,18 @@ class OrderActorRouter(order: ActorRef[OrderCommand])(implicit system: ActorSyst
                   complete(StatusCodes.OK, orders)
                 case GetAllOrdersFailedResponse(reason) =>
                   complete(StatusCodes.InternalServerError, reason)
+              }
+            }
+          } ~
+          path("searchId") {
+            get {
+              parameter("id") { id =>
+                onSuccess(searchOrderById(id)) {
+                  case GetOrderByIdResponse(order) =>
+                    complete(StatusCodes.OK, order)
+                  case GetOrderByIdFailedResponse(reason) =>
+                    complete(StatusCodes.NotFound, s"Order not found: $reason")
+                }
               }
             }
           }

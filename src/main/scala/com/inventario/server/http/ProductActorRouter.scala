@@ -13,12 +13,15 @@ import com.inventario.server.utils.ImageUtils.saveImage
 import io.circe.generic.auto._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 
+import java.util.UUID
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
 case class ProductInsertionRequest(name: String, short_desc: String, desc: String, price: Float, photo: String, imageExt: String) {
   def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, short_desc, desc, price, imageExt, replyTo)
 }
+
+case class ProductUpdateRequest(name: Option[String], short_desc: Option[String], desc: Option[String], price: Option[Float], photo: Option[String], imageExt: Option[String])
 
 class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
   implicit val timeout: Timeout = 3.seconds
@@ -39,6 +42,11 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
     product.ask(replyTo => DeleteProductById(id, replyTo))
   }
 
+  private def updateProduct(id: String, request: ProductUpdateRequest): Future[ProductResponse] = {
+    val productId = UUID.fromString(id)
+    product.ask(replyTo => UpdateProduct(productId, request, replyTo))
+  }
+
   val routes: Route = corsHandler {
     options {
       complete(HttpResponse(StatusCodes.OK)
@@ -55,19 +63,19 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
             }
           }
         } ~
-        path("create") {
-          post {
-            entity(as[ProductInsertionRequest]) { request =>
-              onSuccess(insertProduct(request)) {
-                case InsertNewProductResponse(id) =>
-                  saveImage(id.toString, request.photo, request.imageExt, system)
-                  complete(StatusCodes.Created, id.toString)
-                case InsertNewProductFailedResponse(reason) =>
-                  complete(StatusCodes.InternalServerError, s"Failed to create product: $reason")
+          path("create") {
+            post {
+              entity(as[ProductInsertionRequest]) { request =>
+                onSuccess(insertProduct(request)) {
+                  case InsertNewProductResponse(id) =>
+                    saveImage(id.toString, request.photo, request.imageExt, system)
+                    complete(StatusCodes.Created, id.toString)
+                  case InsertNewProductFailedResponse(reason) =>
+                    complete(StatusCodes.InternalServerError, s"Failed to create product: $reason")
+                }
               }
             }
-          }
-        } ~
+          } ~
           path("searchId") {
             get {
               parameter("id") { id =>
@@ -88,6 +96,22 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
                     complete(StatusCodes.OK, success)
                   case DeleteProductByIdFailedResponse(reason) =>
                     complete(StatusCodes.NotFound, s"Product not found: $reason")
+                }
+              }
+            }
+          } ~
+          path("update") {
+            put {
+              parameter("id") { id =>
+                entity(as[ProductUpdateRequest]) { request =>
+                  onSuccess(updateProduct(id, request)) {
+                    case UpdateProductResponse(success) if success =>
+                      complete(StatusCodes.OK, "Product updated successfully")
+                    case UpdateProductResponse(_) =>
+                      complete(StatusCodes.NotFound, "Product not found")
+                    case UpdateProductFailedResponse(reason) =>
+                      complete(StatusCodes.InternalServerError, reason)
+                  }
                 }
               }
             }

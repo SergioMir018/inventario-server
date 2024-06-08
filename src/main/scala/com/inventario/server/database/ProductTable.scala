@@ -1,5 +1,6 @@
 package com.inventario.server.database
 
+import com.inventario.server.http.ProductUpdateRequest
 import slick.jdbc.PostgresProfile.api._
 import slick.lifted.ProvenShape
 
@@ -40,5 +41,13 @@ object ProductTable {
     val deleteQuery = productTable.filter(product => product.product_id === id)
 
     DatabaseConnection.db.run(deleteQuery.delete)
+  }
+
+  def updateProduct(product: Product): Future[Int] = {
+    val updateQuery = productTable.filter(_.product_id === product.id)
+      .map(p => (p.name, p.short_desc, p.desc, p.price, p.photo))
+      .update((product.name, product.short_desc, product.desc, product.price, product.photo))
+
+    DatabaseConnection.db.run(updateQuery)
   }
 }

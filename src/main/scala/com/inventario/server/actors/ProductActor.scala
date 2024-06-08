@@ -12,22 +12,34 @@ import scala.util.{Failure, Success}
 object ProductActor {
 
   sealed trait ProductCommand
+
   final case class InsertNewProduct(name: String, short_desc: String, desc: String, price: Float, photoExt: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+
   final case class GetProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+
   final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
+
   final case class DeleteProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
 
   sealed trait ProductResponse
+
   final case class InsertNewProductResponse(id: UUID) extends ProductResponse
+
   final case class InsertNewProductFailedResponse(reason: String) extends ProductResponse
+
   final case class GetProductByIdResponse(product: Product) extends ProductResponse
+
   final case class GetProductByIdFailedResponse(reason: String) extends ProductResponse
+
   final case class GetAllProductsResponse(allProducts: Seq[Product]) extends ProductResponse
+
   final case class GetAllProductsFailedResponse(reason: String) extends ProductResponse
+
   final case class DeleteProductByIdResponse(success: Boolean) extends ProductResponse
+
   final case class DeleteProductByIdFailedResponse(reason: String) extends ProductResponse
 
-  def apply(): Behavior[ProductCommand] = Behaviors.receive{ (context, message) =>
+  def apply(): Behavior[ProductCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
 
     message match {

@@ -10,7 +10,6 @@ import akka.util.Timeout
 import com.inventario.server.actors.OrderActor._
 import io.circe.generic.auto._
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-
 import java.text.SimpleDateFormat
 import java.util.{Date, UUID}
 import scala.concurrent.Future
@@ -19,7 +18,6 @@ import scala.concurrent.duration.DurationInt
 case class OrderProductRequest(product_id: String, quantity: Int)
 
 case class OrderCreationRequest(clientID: String, creationDate: String, totalPayment: Float, products: Seq[OrderProductRequest], details: OrderDetailsRequest) {
-
   private def parseDate(dateString: String, pattern: String = "yyyy-MM-dd"): Date = {
     val dateFormat = new SimpleDateFormat(pattern)
     val utilDate = dateFormat.parse(dateString)
@@ -34,19 +32,19 @@ case class OrderCreationRequest(clientID: String, creationDate: String, totalPay
     val formatedClientId = UUID.fromString(clientID)
     val formatedDate = parseDate(creationDate)
     val formattedProducts = convertProductIDs(products)
-
-    println(formatedDate)
-
     CreateOrder(formatedClientId, formatedDate, totalPayment, formattedProducts, details, replyTo)
   }
 }
 
 class OrderActorRouter(order: ActorRef[OrderCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
-
   implicit val timeout: Timeout = 3.seconds
 
   private def createOrder(request: OrderCreationRequest): Future[OrderResponse] = {
     order.ask(replyTo => request.toCommand(replyTo))
+  }
+
+  private def getAllOrders: Future[OrderResponse] = {
+    order.ask(replyTo => GetAllOrders(replyTo))
   }
 
   val routes = corsHandler {
@@ -66,8 +64,17 @@ class OrderActorRouter(order: ActorRef[OrderCommand])(implicit system: ActorSyst
               }
             }
           }
-        }
+        } ~
+          path("all") {
+            get {
+              onSuccess(getAllOrders) {
+                case GetAllOrdersResponse(orders) =>
+                  complete(StatusCodes.OK, orders)
+                case GetAllOrdersFailedResponse(reason) =>
+                  complete(StatusCodes.InternalServerError, reason)
+              }
+            }
+          }
       }
   }
 }
-

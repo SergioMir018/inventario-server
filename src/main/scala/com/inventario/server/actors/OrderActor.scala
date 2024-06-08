@@ -2,8 +2,7 @@ package com.inventario.server.actors
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import com.inventario.server.database.{Order, OrderDetails, OrderProduct, OrderTable, OrderProductTable, OrderDetailsTable}
-import slick.jdbc.PostgresProfile.api._
+import com.inventario.server.database._
 
 import java.util.{Date, UUID}
 import scala.concurrent.{ExecutionContext, Future}
@@ -12,6 +11,7 @@ import scala.util.{Failure, Success}
 object OrderActor {
 
   sealed trait OrderCommand
+
   case class CreateOrder(
                           clientID: UUID,
                           creationDate: Date,
@@ -21,14 +21,23 @@ object OrderActor {
                           replyTo: ActorRef[OrderResponse]
                         ) extends OrderCommand
 
+  case class GetAllOrders(replyTo: ActorRef[OrderResponse]) extends OrderCommand
+
   case class OrderDetailsRequest(shippingAddress: String, billingAddress: String, phoneNumber: String)
+
   case class FormatedOrderProductRequest(product_id: UUID, quantity: Int)
 
   sealed trait OrderResponse
+
   case class CreateOrderResponse(id: UUID) extends OrderResponse
+
   case class CreateOrderFailedResponse(reason: String) extends OrderResponse
 
-  def apply()(implicit db: Database): Behavior[OrderCommand] = Behaviors.receive { (context, message) =>
+  case class GetAllOrdersResponse(orders: Seq[OrderResponseWithDetails]) extends OrderResponse
+
+  case class GetAllOrdersFailedResponse(reason: String) extends OrderResponse
+
+  def apply(): Behavior[OrderCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
 
     def generateOrderName(): Future[String] = {
@@ -66,6 +75,19 @@ object OrderActor {
 
           case Failure(exception) =>
             replyTo ! CreateOrderFailedResponse(exception.getMessage)
+        }
+
+        Behaviors.same
+
+      case GetAllOrders(replyTo) =>
+
+        FullOrderTable
+          .getAllOrdersWithDetails
+          .onComplete {
+          case Success(orders) =>
+            replyTo ! GetAllOrdersResponse(orders)
+          case Failure(exception) =>
+            replyTo ! GetAllOrdersFailedResponse(exception.getMessage)
         }
 
         Behaviors.same

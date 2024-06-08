@@ -1,7 +1,7 @@
 package com.inventario.server.http
 
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.HttpMethods.{DELETE, GET, OPTIONS, POST, PUT}
 import akka.http.scaladsl.model.headers.`Access-Control-Allow-Methods`
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}

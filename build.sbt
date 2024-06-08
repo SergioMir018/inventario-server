@@ -24,9 +24,4 @@ libraryDependencies ++= Seq(
   "com.typesafe.slick"                                %% "slick-hikaricp" % "3.5.1",
   "com.github.tminglei" %% "slick-pg"                 % "0.22.2",
   "com.github.tminglei" %% "slick-pg_play-json"       % "0.22.2",
-
-  // optional, if you want to add tests
-  "com.typesafe.akka" %% "akka-http-testkit"          % akkaHttpVersion % Test,
-  "com.typesafe.akka" %% "akka-actor-testkit-typed"   % akkaVersion     % Test,
-  "org.scalatest"     %% "scalatest"                  % "3.2.9"         % Test
 )

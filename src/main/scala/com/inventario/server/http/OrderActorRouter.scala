@@ -51,6 +51,10 @@ class OrderActorRouter(order: ActorRef[OrderCommand])(implicit system: ActorSyst
     order.ask(replyTo => GetOrderById(id, replyTo))
   }
 
+  private def updateOrderStatus(id: String, status: String): Future[OrderResponse] = {
+    order.ask(replyTo => UpdateOrderStatus(id, status, replyTo))
+  }
+
   val routes = corsHandler {
     options {
       complete(HttpResponse(StatusCodes.OK)
@@ -87,6 +91,18 @@ class OrderActorRouter(order: ActorRef[OrderCommand])(implicit system: ActorSyst
                     complete(StatusCodes.OK, order)
                   case GetOrderByIdFailedResponse(reason) =>
                     complete(StatusCodes.NotFound, s"Order not found: $reason")
+                }
+              }
+            }
+          } ~
+          path("updateStatus") {
+            put {
+              parameters("id", "newStatus") { (id, newStatus) =>
+                onSuccess(updateOrderStatus(id, newStatus)) {
+                  case UpdateOrderStatusResponse(updatedStatus) =>
+                    complete(StatusCodes.Found, updatedStatus)
+                  case UpdateOrderStatusFailedResponse(reason) =>
+                    complete(StatusCodes.InternalServerError, reason)
                 }
               }
             }

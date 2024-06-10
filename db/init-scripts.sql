@@ -14,14 +14,24 @@ create table if not exists users."User" (
     "role" VARCHAR NOT NULL
 );
 
+-- Tabla de Categorías
+CREATE TABLE products."Category" (
+    "category_id" UUID NOT NULL PRIMARY KEY,
+    "category_name" VARCHAR NOT NULL
+);
+
 -- Tabla de Productos
-create table if not exists products."Product" (
+CREATE TABLE products."Product" (
     "product_id" UUID NOT NULL PRIMARY KEY,
     "name" VARCHAR NOT NULL,
     "short_desc" VARCHAR NOT NULL,
     "desc" VARCHAR NOT NULL,
     "price" FLOAT NOT NULL,
-    "photo" VARCHAR
+    "photo" VARCHAR,
+    "category_id" UUID,
+    CONSTRAINT fk_category
+      FOREIGN KEY ("category_id")
+      REFERENCES products."Category"("category_id")
 );
 
 -- Tabla de Órdenes

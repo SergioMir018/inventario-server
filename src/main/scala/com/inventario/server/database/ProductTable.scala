@@ -1,6 +1,5 @@
 package com.inventario.server.database
 
-import com.inventario.server.http.ProductUpdateRequest
 import slick.jdbc.PostgresProfile.api._
 import slick.lifted.ProvenShape
 

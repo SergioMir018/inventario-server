@@ -22,6 +22,7 @@ object OrderActor {
                         ) extends OrderCommand
   case class GetAllOrders(replyTo: ActorRef[OrderResponse]) extends OrderCommand
   case class GetOrderById(orderId: String, replyTo: ActorRef[OrderResponse]) extends OrderCommand
+  case class UpdateOrderStatus(id: String, newStatus: String, replyTo: ActorRef[OrderResponse]) extends OrderCommand
 
   case class OrderDetailsRequest(shippingAddress: String, billingAddress: String, phoneNumber: String)
   case class FormatedOrderProductRequest(product_id: UUID, quantity: Int)
@@ -33,6 +34,8 @@ object OrderActor {
   case class GetAllOrdersFailedResponse(reason: String) extends OrderResponse
   case class GetOrderByIdResponse(order: OrderResponseWithDetails) extends OrderResponse
   case class GetOrderByIdFailedResponse(reason: String) extends OrderResponse
+  case class UpdateOrderStatusResponse(updatedStatus: String) extends OrderResponse
+  case class UpdateOrderStatusFailedResponse(reason: String) extends OrderResponse
 
   def apply(): Behavior[OrderCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
@@ -49,7 +52,7 @@ object OrderActor {
           case Success(orderName) =>
             val orderId = UUID.randomUUID()
             val formatedCreationDate = new java.sql.Date(creationDate.getTime)
-            val newOrder = Order(orderId, "pending", orderName, clientID, formatedCreationDate, totalPayment)
+            val newOrder = Order(orderId, "Pendiente", orderName, clientID, formatedCreationDate, totalPayment)
             val orderProductsWithId = products.map(product => OrderProduct(orderId, product.product_id, product.quantity))
             val orderDetailsWithGeneratedId = OrderDetails(orderId, details.shippingAddress, details.billingAddress, details.phoneNumber)
 
@@ -101,6 +104,17 @@ object OrderActor {
             case Failure(exception) =>
               replyTo ! GetOrderByIdFailedResponse(exception.getMessage)
           }
+
+        Behaviors.same
+      case UpdateOrderStatus(id, newStatus, replyTo) =>
+        val formatedId = UUID.fromString(id)
+
+        OrderTable.updateOrderStatus(formatedId, newStatus).onComplete {
+          case Success(_) =>
+            replyTo ! UpdateOrderStatusResponse(newStatus)
+          case Failure(exception) =>
+            replyTo ! UpdateOrderStatusFailedResponse(exception.getMessage)
+        }
 
         Behaviors.same
     }

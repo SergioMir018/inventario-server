@@ -2,7 +2,7 @@ package com.inventario.server.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.database.{Product, ProductTable}
+import com.inventario.server.database.{Product, ProductSearchResponse, ProductTable}
 import com.inventario.server.http.ProductUpdateRequest
 import com.inventario.server.utils.ImageUtils.saveImage
 
@@ -23,9 +23,9 @@ object ProductActor {
   sealed trait ProductResponse
   final case class InsertNewProductResponse(id: UUID) extends ProductResponse
   final case class InsertNewProductFailedResponse(reason: String) extends ProductResponse
-  final case class GetProductByIdResponse(product: Product) extends ProductResponse
+  final case class GetProductByIdResponse(product: ProductSearchResponse) extends ProductResponse
   final case class GetProductByIdFailedResponse(reason: String) extends ProductResponse
-  final case class GetAllProductsResponse(allProducts: Seq[Product]) extends ProductResponse
+  final case class GetAllProductsResponse(allProducts: Seq[ProductSearchResponse]) extends ProductResponse
   final case class GetAllProductsFailedResponse(reason: String) extends ProductResponse
   final case class DeleteProductByIdResponse(success: Boolean) extends ProductResponse
   final case class DeleteProductByIdFailedResponse(reason: String) extends ProductResponse
@@ -39,7 +39,8 @@ object ProductActor {
       case InsertNewProduct(name, short_desc, desc, price, photoExt, replyTo) =>
         val id = UUID.randomUUID()
         val photoPath = s"public/photos/$id.$photoExt"
-        val product = Product(id, name, short_desc, desc, price, photoPath)
+        // cambiar por id de la categoria que llegue
+        val product = Product(id, name, short_desc, desc, price, photoPath, id)
 
         ProductTable.insertProduct(product).onComplete {
           case Success(_) =>
@@ -114,7 +115,9 @@ object ProductActor {
                 Files.deleteIfExists(Paths.get(deletePath))
                 saveImage(id.toString, base64Photo, photoExt, context.system)
                 photoPath
-              }.getOrElse(product.photo)
+              }.getOrElse(product.photo),
+              // cambiar por id de la categoria que llegue
+              category_id = id,
             )
 
             ProductTable.updateProduct(updatedProduct).onComplete {

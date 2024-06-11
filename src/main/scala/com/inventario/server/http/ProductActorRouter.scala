@@ -38,6 +38,10 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
     product.ask(replyTo => GetAllProducts(replyTo))
   }
 
+  private def getAllCategories: Future[ProductResponse] = {
+    product.ask(replyTo => GetAllCategories(replyTo))
+  }
+
   private def deleteProductById(id: String): Future[ProductResponse] = {
     product.ask(replyTo => DeleteProductById(id, replyTo))
   }
@@ -113,6 +117,16 @@ class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: Act
                       complete(StatusCodes.InternalServerError, reason)
                   }
                 }
+              }
+            }
+          } ~
+          path("categories") {
+            get {
+              onSuccess(getAllCategories) {
+                case GetAllCategoriesResponse(allCategories) =>
+                  complete(StatusCodes.OK, allCategories)
+                case GetAllCategoriesFailedResponse(reason) =>
+                  complete(StatusCodes.InternalServerError, s"Failed to get all categories: $reason")
               }
             }
           }

@@ -2,7 +2,7 @@ package com.inventario.server.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.database.{Product, ProductSearchResponse, ProductTable}
+import com.inventario.server.database.{CategoryResponse, CategoryTable, Product, ProductSearchResponse, ProductTable}
 import com.inventario.server.http.ProductUpdateRequest
 import com.inventario.server.utils.ImageUtils.saveImage
 
@@ -19,6 +19,7 @@ object ProductActor {
   final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class DeleteProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class UpdateProduct(id: UUID, updateData: ProductUpdateRequest, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class GetAllCategories(replyTo: ActorRef[ProductResponse]) extends ProductCommand
 
   sealed trait ProductResponse
   final case class InsertNewProductResponse(id: UUID) extends ProductResponse
@@ -31,6 +32,8 @@ object ProductActor {
   final case class DeleteProductByIdFailedResponse(reason: String) extends ProductResponse
   final case class UpdateProductResponse(success: Boolean) extends ProductResponse
   final case class UpdateProductFailedResponse(reason: String) extends ProductResponse
+  final case class GetAllCategoriesResponse(allCategories: Seq[CategoryResponse]) extends ProductResponse
+  final case class GetAllCategoriesFailedResponse(reason: String) extends ProductResponse
 
   def apply(): Behavior[ProductCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
@@ -132,6 +135,15 @@ object ProductActor {
 
           case Failure(ex) =>
             replyTo ! UpdateProductFailedResponse(ex.getMessage)
+        }
+
+        Behaviors.same
+      case GetAllCategories(replyTo) =>
+        CategoryTable.getAllCategories.onComplete {
+          case Success(categories) =>
+            replyTo ! GetAllCategoriesResponse(categories)
+          case Failure(exception) =>
+            replyTo ! GetAllCategoriesFailedResponse(exception.getMessage)
         }
 
         Behaviors.same

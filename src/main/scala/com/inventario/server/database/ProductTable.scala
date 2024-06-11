@@ -7,7 +7,6 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 case class Product(id: UUID, name: String, short_desc: String, desc: String, price: Float, photo: String, category_id: UUID)
-
 case class ProductSearchResponse(id: UUID, name: String, short_desc: String, desc: String, price: Float, photo: String, category: String)
 
 class ProductTable(tag: Tag) extends Table[Product](tag, Some("products"), "Product") {
@@ -26,6 +25,7 @@ class ProductTable(tag: Tag) extends Table[Product](tag, Some("products"), "Prod
 
 
 case class Category(id: UUID, name: String)
+case class CategoryResponse(name: String)
 
 class CategoryTable(tag: Tag) extends Table[Category](tag, Some("products"), "Category") {
   def category_id = column[UUID]("category_id", O.PrimaryKey)
@@ -36,6 +36,16 @@ class CategoryTable(tag: Tag) extends Table[Category](tag, Some("products"), "Ca
 
 object CategoryTable {
   val categoryTable = TableQuery[CategoryTable]
+
+  def getAllCategories(implicit ec: ExecutionContext): Future[Seq[CategoryResponse]] = {
+    val categoriesQuery = categoryTable.result
+
+    DatabaseConnection.db.run(categoriesQuery).map { result =>
+      result.map { category =>
+        CategoryResponse(category.name)
+      }
+    }
+  }
 }
 
 object ProductTable {
@@ -72,10 +82,32 @@ object ProductTable {
     }
   }
 
-  def deleteProductById(id: UUID): Future[Int] = {
-    val deleteQuery = productTable.filter(product => product.product_id === id)
+  def deleteProductById(id: UUID)(implicit ec: ExecutionContext): Future[Int] = {
+    val orderTable = TableQuery[OrderTable]
+    val orderProductTable = TableQuery[OrderProductTable]
+    val productTable = TableQuery[ProductTable]
 
-    DatabaseConnection.db.run(deleteQuery.delete)
+    val checkIfCompletedQuery = for {
+      (orderProduct, order) <- orderProductTable join orderTable on (_.order_id === _.id)
+      if orderProduct.product_id === id && order.status === "Completada"
+    } yield orderProduct
+
+    val deleteOrderProductsAction = orderProductTable.filter(_.product_id === id).delete
+    val deleteProductAction = productTable.filter(_.product_id === id).delete
+
+    val combinedAction = for {
+      isReferencedInCompletedOrder <- checkIfCompletedQuery.exists.result
+      result <- if (isReferencedInCompletedOrder) {
+        for {
+          _ <- deleteOrderProductsAction
+          rowsDeleted <- deleteProductAction
+        } yield rowsDeleted
+      } else {
+        DBIO.failed(new Exception("Product is not referenced in any completed orders"))
+      }
+    } yield result
+
+    DatabaseConnection.db.run(combinedAction.transactionally)
   }
 
   def updateProduct(product: Product): Future[Int] = {

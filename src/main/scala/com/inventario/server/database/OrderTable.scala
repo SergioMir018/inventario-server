@@ -130,4 +130,23 @@ object FullOrderTable {
       }.toSeq
     }
   }
+
+  def getCompletedOrdersWithDetails(implicit ec: ExecutionContext): Future[Seq[OrderResponseWithDetails]] = {
+    val query = for {
+      (order, details) <- orderTable.filter(_.status === "Completada") join orderDetailsTable on (_.id === _.order_id)
+      products <- orderProductTable if order.id === products.order_id
+    } yield (order, details, products)
+
+    DatabaseConnection.db.run(query.result).map { results =>
+      results.groupBy(_._1).map { case (order, group) =>
+        val details = group.head._2
+        val products = group.map(_._3).map(p => ProductResponse(p.product_id, p.quantity))
+        OrderResponseWithDetails(
+          order.id, order.status, order.name, order.client_id, order.creation_date.toString,
+          order.total_payment, details.shipping_address, details.billing_address,
+          details.phone_number, products
+        )
+      }.toSeq
+    }
+  }
 }

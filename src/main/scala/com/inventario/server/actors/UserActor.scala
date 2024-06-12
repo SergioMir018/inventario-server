@@ -3,21 +3,28 @@ package com.inventario.server.actors
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.Behavior
-import com.inventario.server.database.{UserTable, User}
+import com.inventario.server.database.{User, UserTable, Visit, VisitResponse, VisitsTable}
 
-import java.util.UUID
+import java.sql.Timestamp
+import java.util.{Date, UUID}
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object UserActor {
 
   sealed trait UserCommand
+  final case class RegisterVisit(url: String, date: Date, replyTo: ActorRef[UserResponse]) extends UserCommand
+  final case class GetRegisteredVisits(replyTo: ActorRef[UserResponse]) extends UserCommand
   final case class CreateUserAccount(name: String, email: String, password: String, role: String, replyTo: ActorRef[UserResponse]) extends UserCommand
   final case class GetUserAccountBySearchTerm(searchValue: String, replyTo: ActorRef[UserResponse]) extends UserCommand
   final case class UserAccountLogin(identifier: String, password: String, replyTo: ActorRef[UserResponse]) extends UserCommand
   final case class GetUserAccountById(id: String, replyTo: ActorRef[UserResponse]) extends UserCommand
 
   sealed trait UserResponse
+  final case class RegisterVisitResponse(confirmation: String) extends UserResponse
+  final case class RegisterVisitFailedResponse(reason: String) extends UserResponse
+  final case class GetRegisteredVisitsResponse(visits: Seq[VisitResponse]) extends UserResponse
+  final case class GetRegisteredVisitsFailedResponse(reason: String) extends UserResponse
   final case class CreateUserAccountResponse(id: UUID) extends UserResponse
   final case class UserAccountCreationFailedResponse(reason: String) extends UserResponse
   final case class GetUserAccountBySearchTermResponse(user: User) extends UserResponse
@@ -34,6 +41,27 @@ object UserActor {
     implicit val ec: ExecutionContext = context.executionContext
 
     message match {
+      case RegisterVisit(url, date, replyTo) =>
+        val timestamp = new Timestamp(date.getTime)
+        val visit = Visit(None, url, timestamp)
+
+        VisitsTable.insertVisit(visit).onComplete {
+          case Success(_) =>
+            replyTo ! RegisterVisitResponse("New page visit registered")
+          case Failure(exception) =>
+            replyTo ! RegisterVisitFailedResponse(exception.getMessage)
+        }
+
+        Behaviors.same
+      case GetRegisteredVisits(replyTo) =>
+        VisitsTable.getAllVisits.onComplete {
+          case Success(visits) =>
+            replyTo ! GetRegisteredVisitsResponse(visits)
+          case Failure(exception) =>
+            replyTo ! GetRegisteredVisitsFailedResponse(exception.getMessage)
+        }
+
+        Behaviors.same
       case CreateUserAccount(name, email, password, role, replyTo) =>
         val id = UUID.randomUUID()
         val user = User(id, name, email, password, role)

@@ -19,12 +19,30 @@ case class AccountCreationRequest(name: String, email: String, password: String,
   def toCommand(replyTo: ActorRef[UserResponse]): UserCommand = CreateUserAccount(name, email, password, role, replyTo)
 }
 
+case class RegisterVisitRequest(url: String, date: String) {
+  def toCommand(replyTo: ActorRef[UserResponse]): UserCommand = {
+    import com.inventario.server.utils.DateUtils._
+
+    val formatedDate = parseDate(date)
+
+    RegisterVisit(url, formatedDate, replyTo)
+  }
+}
+
 class UserActorRouter(userAccount: ActorRef[UserCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
 
   implicit val timeout: Timeout = 3.seconds
 
   private def createUserAccount(request: AccountCreationRequest): Future[UserResponse] = {
     userAccount.ask(replyTo => request.toCommand(replyTo))
+  }
+
+  private def registerVisit(request: RegisterVisitRequest): Future[UserResponse] = {
+    userAccount.ask(replyTo => request.toCommand(replyTo))
+  }
+
+  private def getPageVisits: Future[UserResponse] = {
+    userAccount.ask(replyTo => GetRegisteredVisits(replyTo))
   }
 
   private def searchUserAccountBySearchTerm(searchTerm: String): Future[UserResponse] = {
@@ -41,6 +59,30 @@ class UserActorRouter(userAccount: ActorRef[UserCommand])(implicit system: Actor
 
   val routes: Route = corsHandler {
     pathPrefix("user") {
+      path("visit") {
+        post {
+          entity(as[RegisterVisitRequest]) { request =>
+            onSuccess(registerVisit(request)) {
+              case RegisterVisitResponse(confirmation) =>
+                system.log.info(confirmation)
+                complete(StatusCodes.OK, confirmation)
+              case RegisterVisitFailedResponse(reason) =>
+                system.log.error(reason)
+                complete(StatusCodes.InternalServerError, reason)
+            }
+          }
+        } ~
+          get {
+            onSuccess(getPageVisits) {
+              case GetRegisteredVisitsResponse(numberVisits) =>
+                system.log.info(s"Registered visits requested number: ${numberVisits.length}")
+                complete(StatusCodes.OK, numberVisits)
+              case GetRegisteredVisitsFailedResponse(reason) =>
+                system.log.error(reason)
+                complete(StatusCodes.InternalServerError, s"Failed to get all products: $reason")
+            }
+          }
+      } ~
       path("create") {
         post {
           entity(as[AccountCreationRequest]) { request =>

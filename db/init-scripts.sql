@@ -5,6 +5,14 @@ create schema users;
 create schema products;
 create schema orders;
 
+-- Tabla de registro de visitas
+CREATE TABLE visits (
+  id SERIAL PRIMARY KEY,
+  url TEXT NOT NULL,
+  timestamp TIMESTAMP NOT NULL
+);
+
+
 -- Tabla de Usuarios
 create table if not exists users."User" (
     "user_id" UUID NOT NULL PRIMARY KEY,

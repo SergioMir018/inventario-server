@@ -23,6 +23,7 @@ object OrderActor {
   case class GetAllOrders(replyTo: ActorRef[OrderResponse]) extends OrderCommand
   case class GetOrderById(orderId: String, replyTo: ActorRef[OrderResponse]) extends OrderCommand
   case class UpdateOrderStatus(id: String, newStatus: String, replyTo: ActorRef[OrderResponse]) extends OrderCommand
+  case class GetAllCompletedOrders(replyTo: ActorRef[OrderResponse]) extends OrderCommand
 
   case class OrderDetailsRequest(shippingAddress: String, billingAddress: String, phoneNumber: String)
   case class FormatedOrderProductRequest(product_id: UUID, quantity: Int)
@@ -36,6 +37,8 @@ object OrderActor {
   case class GetOrderByIdFailedResponse(reason: String) extends OrderResponse
   case class UpdateOrderStatusResponse(updatedStatus: String) extends OrderResponse
   case class UpdateOrderStatusFailedResponse(reason: String) extends OrderResponse
+  case class GetAllCompletedOrdersResponse(orders: Seq[OrderResponseWithDetails]) extends OrderResponse
+  case class GetAllCompletedOrdersFailedResponse(reason: String) extends OrderResponse
 
   def apply(): Behavior[OrderCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
@@ -115,6 +118,18 @@ object OrderActor {
           case Failure(exception) =>
             replyTo ! UpdateOrderStatusFailedResponse(exception.getMessage)
         }
+
+        Behaviors.same
+      case GetAllCompletedOrders(replyTo) =>
+
+        FullOrderTable
+          .getCompletedOrdersWithDetails
+          .onComplete {
+            case Success(orders) =>
+              replyTo ! GetAllCompletedOrdersResponse(orders)
+            case Failure(exception) =>
+              replyTo ! GetAllCompletedOrdersFailedResponse(exception.getMessage)
+          }
 
         Behaviors.same
     }

@@ -17,11 +17,11 @@ import java.util.UUID
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-case class ProductInsertionRequest(name: String, short_desc: String, desc: String, price: Float, photo: String, imageExt: String) {
-  def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, short_desc, desc, price, imageExt, replyTo)
+case class ProductInsertionRequest(name: String, category: String, short_desc: String, desc: String, price: Float, photo: String, imageExt: String) {
+  def toCommand(replyTo: ActorRef[ProductResponse]): ProductCommand = InsertNewProduct(name, category, short_desc, desc, price, imageExt, replyTo)
 }
 
-case class ProductUpdateRequest(name: Option[String], short_desc: Option[String], desc: Option[String], price: Option[Float], photo: Option[String], imageExt: Option[String])
+case class ProductUpdateRequest(name: Option[String], category: Option[String], short_desc: Option[String], desc: Option[String], price: Option[Float], photo: Option[String], imageExt: Option[String])
 
 class ProductActorRouter(product: ActorRef[ProductCommand])(implicit system: ActorSystem[_]) extends CORSHandler {
   implicit val timeout: Timeout = 3.seconds

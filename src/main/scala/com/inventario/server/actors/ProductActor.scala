@@ -2,7 +2,7 @@ package com.inventario.server.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.inventario.server.database.{CategoryResponse, CategoryTable, Product, ProductSearchResponse, ProductTable}
+import com.inventario.server.database.{Category, CategoryTable, Product, ProductSearchResponse, ProductTable}
 import com.inventario.server.http.ProductUpdateRequest
 import com.inventario.server.utils.ImageUtils.saveImage
 
@@ -14,7 +14,7 @@ import scala.util.{Failure, Success}
 object ProductActor {
 
   sealed trait ProductCommand
-  final case class InsertNewProduct(name: String, short_desc: String, desc: String, price: Float, photoExt: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
+  final case class InsertNewProduct(name: String, category: String, short_desc: String, desc: String, price: Float, photoExt: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class GetAllProducts(replyTo: ActorRef[ProductResponse]) extends ProductCommand
   final case class DeleteProductById(id: String, replyTo: ActorRef[ProductResponse]) extends ProductCommand
@@ -32,18 +32,18 @@ object ProductActor {
   final case class DeleteProductByIdFailedResponse(reason: String) extends ProductResponse
   final case class UpdateProductResponse(success: Boolean) extends ProductResponse
   final case class UpdateProductFailedResponse(reason: String) extends ProductResponse
-  final case class GetAllCategoriesResponse(allCategories: Seq[CategoryResponse]) extends ProductResponse
+  final case class GetAllCategoriesResponse(allCategories: Seq[Category]) extends ProductResponse
   final case class GetAllCategoriesFailedResponse(reason: String) extends ProductResponse
 
   def apply(): Behavior[ProductCommand] = Behaviors.receive { (context, message) =>
     implicit val ec: ExecutionContext = context.executionContext
 
     message match {
-      case InsertNewProduct(name, short_desc, desc, price, photoExt, replyTo) =>
+      case InsertNewProduct(name, category, short_desc, desc, price, photoExt, replyTo) =>
         val id = UUID.randomUUID()
         val photoPath = s"public/photos/$id.$photoExt"
-        // cambiar por id de la categoria que llegue
-        val product = Product(id, name, short_desc, desc, price, photoPath, id)
+        val formatedCategoryId = UUID.fromString(category)
+        val product = Product(id, name, short_desc, desc, price, photoPath, formatedCategoryId)
 
         ProductTable.insertProduct(product).onComplete {
           case Success(_) =>
@@ -105,6 +105,8 @@ object ProductActor {
 
             deletePath = deletePath.concat(product.photo)
 
+            val formatedCategoryId = UUID.fromString(updateData.category.get)
+
             val updatedProduct = Product(
               id = id,
               name = updateData.name.getOrElse(product.name),
@@ -119,8 +121,7 @@ object ProductActor {
                 saveImage(id.toString, base64Photo, photoExt, context.system)
                 photoPath
               }.getOrElse(product.photo),
-              // cambiar por id de la categoria que llegue
-              category_id = id,
+              category_id = formatedCategoryId,
             )
 
             ProductTable.updateProduct(updatedProduct).onComplete {

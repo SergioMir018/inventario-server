@@ -25,7 +25,6 @@ class ProductTable(tag: Tag) extends Table[Product](tag, Some("products"), "Prod
 
 
 case class Category(id: UUID, name: String)
-case class CategoryResponse(name: String)
 
 class CategoryTable(tag: Tag) extends Table[Category](tag, Some("products"), "Category") {
   def category_id = column[UUID]("category_id", O.PrimaryKey)
@@ -37,14 +36,10 @@ class CategoryTable(tag: Tag) extends Table[Category](tag, Some("products"), "Ca
 object CategoryTable {
   val categoryTable = TableQuery[CategoryTable]
 
-  def getAllCategories(implicit ec: ExecutionContext): Future[Seq[CategoryResponse]] = {
+  def getAllCategories: Future[Seq[Category]] = {
     val categoriesQuery = categoryTable.result
 
-    DatabaseConnection.db.run(categoriesQuery).map { result =>
-      result.map { category =>
-        CategoryResponse(category.name)
-      }
-    }
+    DatabaseConnection.db.run(categoriesQuery)
   }
 }
 

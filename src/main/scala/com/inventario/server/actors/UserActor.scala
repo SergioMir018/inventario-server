@@ -30,11 +30,12 @@ object UserActor {
   final case class GetUserAccountBySearchTermResponse(user: User) extends UserResponse
   final case class GetUserAccountBySearchTermFailedResponse(reason: String) extends UserResponse
   final case class UserAccountLoginResponse(responseBody: LoginResponseBody) extends UserResponse
-  final case class UserAccountLoginFailedResponse(reason: String) extends UserResponse
+  final case class UserAccountLoginFailedResponse(error: LoginFailedResponseBody) extends UserResponse
   final case class GetUserAccountByIdResponse(userDetails: AccountDetails) extends UserResponse
   final case class GetUserAccountByIdFailedResponse(reason: String) extends UserResponse
 
   final case class LoginResponseBody(role: String, id: UUID)
+  final case class LoginFailedResponseBody(errorType: String, reason: String)
   final case class AccountDetails(name: String, email: String)
 
   def apply(): Behavior[UserCommand] = Behaviors.receive { (context, message) =>
@@ -87,15 +88,20 @@ object UserActor {
         Behaviors.same
       case UserAccountLogin(identifier, password, replyTo) =>
         UserTable.searchUserByTerm(identifier).onComplete {
-          case Success(Some(user)) if password.equals(user.password) =>
-            val loginResponse = LoginResponseBody(user.role, user.id)
-            replyTo ! UserAccountLoginResponse(loginResponse)
-          case Success(Some(_)) =>
-            replyTo ! UserAccountLoginFailedResponse("Invalid password")
+          case Success(Some(user)) =>
+            if (password == user.password) {
+              val loginResponse = LoginResponseBody(user.role, user.id)
+              replyTo ! UserAccountLoginResponse(loginResponse)
+            } else {
+              val loginErrorResponse = LoginFailedResponseBody("password", "Contraseña inválida")
+              replyTo ! UserAccountLoginFailedResponse(loginErrorResponse)
+            }
           case Success(None) =>
-            replyTo ! UserAccountLoginFailedResponse("User not found")
+            val loginErrorResponse = LoginFailedResponseBody("user", "Usuario inválido")
+            replyTo ! UserAccountLoginFailedResponse(loginErrorResponse)
           case Failure(ex) =>
-            replyTo ! UserAccountLoginFailedResponse(ex.getMessage)
+            val loginErrorResponse = LoginFailedResponseBody("server", s"Database error: ${ex.getMessage}")
+            replyTo ! UserAccountLoginFailedResponse(loginErrorResponse)
         }
 
         Behaviors.same
@@ -108,7 +114,8 @@ object UserActor {
           case Success(None) =>
             replyTo ! GetUserAccountByIdFailedResponse("User not found")
           case Failure(ex) =>
-            replyTo ! UserAccountLoginFailedResponse(ex.getMessage)
+            val loginErrorResponse = LoginFailedResponseBody("server", s"Database error: ${ex.getMessage}")
+            replyTo ! UserAccountLoginFailedResponse(loginErrorResponse)
         }
 
         Behaviors.same

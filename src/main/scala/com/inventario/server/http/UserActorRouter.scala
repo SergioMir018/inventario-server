@@ -125,10 +125,12 @@ class UserActorRouter(userAccount: ActorRef[UserCommand])(implicit system: Actor
               onSuccess(loginUserAccount(identifier, password)) {
                 case UserAccountLoginResponse(responseBody) =>
                   complete(StatusCodes.OK, responseBody)
-                case UserAccountLoginFailedResponse(reason) =>
-                  complete(StatusCodes.Unauthorized, reason)
-                case UserAccountLoginFailedResponse(reason) =>
-                  complete(StatusCodes.NotFound, reason)
+                case UserAccountLoginFailedResponse(error) =>
+                  if (error.errorType == "server") {
+                    complete(StatusCodes.InternalServerError, error)
+                  } else {
+                    complete(StatusCodes.NotFound, error)
+                  }
               }
             }
           }

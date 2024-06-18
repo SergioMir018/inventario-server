@@ -43,7 +43,7 @@ object ProductActor {
         val id = UUID.randomUUID()
         val photoPath = s"public/photos/$id.$photoExt"
         val formatedCategoryId = UUID.fromString(category)
-        val product = Product(id, name, short_desc, desc, price, photoPath, formatedCategoryId)
+        val product = Product(id, name, short_desc, desc, price, photoPath, formatedCategoryId, deleted = false)
 
         ProductTable.insertProduct(product).onComplete {
           case Success(_) =>
@@ -122,6 +122,7 @@ object ProductActor {
                 photoPath
               }.getOrElse(product.photo),
               category_id = formatedCategoryId,
+              deleted = false
             )
 
             ProductTable.updateProduct(updatedProduct).onComplete {
